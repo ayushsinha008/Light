@@ -56,12 +56,73 @@ describe("Amazon order adapter", () => {
     expect(plan?.actions[0]).toMatchObject({ type: "click", element_id: "match" });
   });
 
-  it("requires approval before Buy Now", () => {
-    const plan = amazonOrderPlan(
-      context("https://www.amazon.in/dp/TWO", [
-        element({ id: "buy", type: "button", text: "Buy Now" }),
-      ]),
+  it("ignores cart-drawer products and unrelated lowers when buying a keyboard", () => {
+    const plan = amazonOrderPlan({
+      user_goal: "buy best bugget keybord under 1k",
+      observation: {
+        url: "https://www.amazon.in/s?k=budget+keyboard+under+1000",
+        title: "Amazon",
+        elements: [
+          element({
+            id: "cart-lower",
+            type: "link",
+            href: "https://www.amazon.in/gp/product/B0HCW2FF27?ref=ewc_pr_img_1",
+            text: "QUIXEL Men's Premium Cotton Baggy Track Pants",
+          }),
+          element({
+            id: "keyboard",
+            type: "link",
+            href: "https://www.amazon.in/dp/KEY123",
+            text: "Wireless budget keyboard for PC under 1000",
+          }),
+        ],
+        forms: [],
+        visible_text: "",
+        timestamp: Date.now(),
+        observation_id: "amazon",
+      },
+      history: [],
+    });
+    expect(extractSearchQuery("buy best bugget keybord under 1k")).toBe(
+      "budget keyboard under 1000",
     );
+    expect(plan?.actions[0]).toMatchObject({ type: "click", element_id: "keyboard" });
+  });
+
+  it("leaves a mismatched product page and returns to search", () => {
+    const plan = amazonOrderPlan({
+      user_goal: "buy best bugget keybord under 1k",
+      observation: {
+        url: "https://www.amazon.in/gp/product/B0HCW2FF27",
+        title: "QUIXEL Men's Premium Cotton Baggy Track Pants",
+        elements: [element({ id: "buy", type: "button", text: "Buy Now" })],
+        forms: [],
+        visible_text: "Track Pants Pack of 2",
+        timestamp: Date.now(),
+        observation_id: "amazon",
+      },
+      history: [],
+    });
+    expect(plan?.actions[0]).toMatchObject({
+      type: "navigate",
+      url: expect.stringContaining("keyboard"),
+    });
+  });
+
+  it("requires approval before Buy Now", () => {
+    const plan = amazonOrderPlan({
+      user_goal: "1000 ke andar ka black jeans order kar de",
+      observation: {
+        url: "https://www.amazon.in/dp/TWO",
+        title: "Men black jeans slim fit",
+        elements: [element({ id: "buy", type: "button", text: "Buy Now", name: "buy-now-button" })],
+        forms: [],
+        visible_text: "Men black jeans slim fit under 1000",
+        timestamp: Date.now(),
+        observation_id: "amazon",
+      },
+      history: [],
+    });
     expect(plan?.needs_approval).toBe(true);
     expect(plan?.actions[0]).toMatchObject({
       type: "click",

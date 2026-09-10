@@ -77,6 +77,11 @@ const TYPOS: Array<[RegExp, string]> = [
   [/\bmoblie\b/gi, "mobile"],
   [/\byoutub\b/gi, "youtube"],
   [/\btrian\b/gi, "train"],
+  [/\bkeybord\b/gi, "keyboard"],
+  [/\bkeboard\b/gi, "keyboard"],
+  [/\bkeybaord\b/gi, "keyboard"],
+  [/\bbugget\b/gi, "budget"],
+  [/\bbudgte\b/gi, "budget"],
 ];
 
 function applyTypos(text: string): string {
@@ -85,16 +90,20 @@ function applyTypos(text: string): string {
   return out;
 }
 
+function normalizeBudgetToken(text: string): string {
+  return text.replace(/\b(\d+)\s*k\b/gi, (_, n) => String(Number(n) * 1000));
+}
+
 function tidySpaces(text: string): string {
   return text.replace(/[.!?]+$/g, "").replace(/\s+/g, " ").trim();
 }
 
 /** Strip site/command filler words so search boxes get a clean query. */
 export function extractSearchQuery(goal: string): string {
-  const raw = applyTypos(goal.trim());
+  const raw = normalizeBudgetToken(applyTypos(goal.trim()));
 
   const quoted = raw.match(/["“']([^"”']+)["”']/);
-  if (quoted?.[1]) return tidySpaces(applyTypos(quoted[1]));
+  if (quoted?.[1]) return tidySpaces(normalizeBudgetToken(applyTypos(quoted[1])));
 
   // Hinglish price-first: "1000 ke andar ka black jeans order kar de"
   const hindiPriceFirst = raw.match(
@@ -105,7 +114,7 @@ export function extractSearchQuery(goal: string): string {
       applyTypos(
         hindiPriceFirst[2]!.replace(COMMAND_FILLER, " ").replace(HINGLISH_FILLER, " "),
       ),
-    );
+    ).replace(/\b(best|good|cheap|budget)\b/gi, " ").replace(/\s+/g, " ").trim();
     if (product.length >= 3) {
       return `${product} under ${hindiPriceFirst[1]!.replace(/,/g, "")}`;
     }
@@ -116,9 +125,10 @@ export function extractSearchQuery(goal: string): string {
     /([A-Za-z][A-Za-z0-9+.\- ]{1,50}?)\s+(?:under|below|upto|up\s*to|se\s*kam|<)\s*₹?\s*(\d[\d,]*)/i,
   );
   if (productUnderPrice) {
-    const product = tidySpaces(
+    let product = tidySpaces(
       applyTypos(productUnderPrice[1]!.replace(COMMAND_FILLER, " ").replace(HINGLISH_FILLER, " ")),
     );
+    product = product.replace(/\b(best|good|cheap)\b/gi, " ").replace(/\s+/g, " ").trim();
     if (product.length >= 3) return `${product} under ${productUnderPrice[2]!.replace(/,/g, "")}`;
   }
 

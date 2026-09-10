@@ -185,6 +185,34 @@ export function youtubePlayPlan(input: AgentContext): ActionPlan | null {
   });
 }
 
+function amazonQueryTokens(query: string): string[] {
+  return query
+    .toLowerCase()
+    .split(/\s+/)
+    .filter(
+      (token) =>
+        token.length > 2 &&
+        !/^(under|below|upto|best|good|cheap|budget|rs|inr|for|the|and|with|from)$/i.test(token) &&
+        !/^\d+$/.test(token),
+    );
+}
+
+function productMatchesQuery(hay: string, tokens: string[]): { score: number; hits: number } {
+  let score = 0;
+  let hits = 0;
+  for (const token of tokens) {
+    if (hay.includes(token)) {
+      hits += 1;
+      score += token.length >= 5 ? 12 : 8;
+    }
+  }
+  if (/sponsored|advertisement/i.test(hay)) score -= 6;
+  if (/track\s*pant|lower|jeans|shirt|kurta|saree|shoe/i.test(hay) && !tokens.some((t) => /pant|jean|shirt|shoe|kurta|saree|lower/.test(t))) {
+    score -= 20;
+  }
+  return { score, hits };
+}
+
 /** Reliable local Amazon purchase flow; final financial actions stay approval-gated. */
 export function amazonOrderPlan(input: AgentContext): ActionPlan | null {
   if (!isBuyGoal(input.user_goal)) return null;
@@ -201,10 +229,9 @@ export function amazonOrderPlan(input: AgentContext): ActionPlan | null {
   const query = extractSearchQuery(goal);
   const elements = input.observation.elements.filter((el) => el.visible && el.interactive);
   const visibleText = input.observation.visible_text || "";
-  const queryTokens = query
-    .toLowerCase()
-    .split(/\s+/)
-    .filter((token) => token.length > 2 && !/^(under|below|\d+)$/.test(token));
+  const pageTitle = input.observation.title || "";
+  const queryTokens = amazonQueryTokens(query);
+  const requiredHits = Math.max(1, Math.min(2, queryTokens.length));
 
   if (/thank you|order placed|order confirmed/i.test(visibleText)) {
     return ActionPlanSchema.parse({
@@ -218,17 +245,21 @@ export function amazonOrderPlan(input: AgentContext): ActionPlan | null {
 
   if (url.pathname === "/s" || url.searchParams.has("k")) {
     const product = elements
-      .filter((el) => /\/(?:dp|gp\/product)\//i.test(el.href || ""))
+      .filter((el) => {
+        const href = el.href || "";
+        if (!/\/(?:dp|gp\/product)\//i.test(href)) return false;
+        // Ignore cart drawer / recently viewed side-panel links.
+        if (/[?&]ref=ewc_|ewc_pr_|\/gp\/cart/i.test(href)) return false;
+        const hay = `${el.text || ""} ${el.ariaLabel || ""}`.trim();
+        return hay.length >= 8;
+      })
       .map((el) => {
         const hay = `${el.text || ""} ${el.ariaLabel || ""}`.toLowerCase();
-        let score = 10;
-        for (const token of queryTokens) {
-          if (hay.includes(token)) score += 7;
-        }
-        if (/sponsored/i.test(hay)) score -= 4;
-        return { el, score };
+        const { score, hits } = productMatchesQuery(hay, queryTokens);
+        return { el, score, hits };
       })
-      .sort((a, b) => b.score - a.score)[0]?.el;
+      .filter((item) => item.hits >= requiredHits && item.score > 0)
+      .sort((a, b) => b.score - a.score || b.hits - a.hits)[0]?.el;
 
     if (product) {
       return ActionPlanSchema.parse({
@@ -248,22 +279,48 @@ export function amazonOrderPlan(input: AgentContext): ActionPlan | null {
         { type: "scroll", direction: "down", amount: 650, confidence: 0.9 },
         { type: "wait", wait_ms: 700, confidence: 1 },
       ],
-      reason: "Amazon: reveal product results",
+      reason: "Amazon: reveal matching product results",
       confidence: 0.9,
     });
   }
 
   if (/\/(?:dp|gp\/product)\//i.test(url.pathname)) {
-    const buyNow = elements.find((el) =>
-      /buy\s*now|proceed\s*to\s*buy/i.test(
-        `${el.text || ""} ${el.ariaLabel || ""} ${el.name || ""}`,
-      ),
-    );
-    const addToCart = elements.find((el) =>
-      /add\s*to\s*(?:cart|basket)/i.test(
-        `${el.text || ""} ${el.ariaLabel || ""} ${el.name || ""}`,
-      ),
-    );
+    const pageHay = `${pageTitle} ${visibleText.slice(0, 1200)}`.toLowerCase();
+    const pageMatch = productMatchesQuery(pageHay, queryTokens);
+    if (queryTokens.length > 0 && pageMatch.hits < requiredHits) {
+      return ActionPlanSchema.parse({
+        goal,
+        actions: [
+          {
+            type: "navigate",
+            url: `https://www.amazon.in/s?k=${encodeURIComponent(query)}`,
+            confidence: 0.97,
+          },
+        ],
+        reason: "Amazon: current product does not match the buy request — return to search",
+        confidence: 0.97,
+      });
+    }
+
+    const buyNow =
+      elements.find((el) => /buy-now-button|submit\.buy-now/i.test(`${el.name || ""}`)) ||
+      elements.find((el) =>
+        /^(buy\s*now|proceed\s*to\s*buy)$/i.test(
+          `${el.text || ""} ${el.ariaLabel || ""} ${el.name || ""}`.trim(),
+        ),
+      ) ||
+      elements.find((el) =>
+        /buy\s*now|proceed\s*to\s*buy/i.test(
+          `${el.text || ""} ${el.ariaLabel || ""} ${el.name || ""}`,
+        ),
+      );
+    const addToCart =
+      elements.find((el) => /add-to-cart-button/i.test(`${el.name || ""}`)) ||
+      elements.find((el) =>
+        /add\s*to\s*(?:cart|basket)/i.test(
+          `${el.text || ""} ${el.ariaLabel || ""} ${el.name || ""}`,
+        ),
+      );
     const purchase = buyNow || addToCart;
     if (purchase) {
       return ActionPlanSchema.parse({

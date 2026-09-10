@@ -14,13 +14,17 @@ const PRIORITY_SELECTOR = [
   "video",
   "input#search",
   'input[name="search_query"]',
-  // Amazon
-  "#add-to-cart-button",
+  // Amazon purchase controls first so Buy Now is never crowded out
   "#buy-now-button",
+  "input#buy-now-button",
+  "#add-to-cart-button",
+  "input#add-to-cart-button",
   "#nav-search-submit-button",
   "#twotabsearchtextbox",
   "div[data-component-type='s-search-result'] h2 a",
   ".s-title-instructions-style a",
+  "div[data-cy='title-recipe'] a",
+  // Ignore cart drawer when possible by prioritizing main results above
   // Travel booking controls (keep above generic navigation links)
   "[data-cy='flights']",
   "a[href*='/flights']",
@@ -246,7 +250,7 @@ export function observePage(): PageObservation {
       tagName: el.tagName.toLowerCase(),
       text: textOf(el),
       ariaLabel: el.getAttribute("aria-label") || undefined,
-      name: input.name || undefined,
+      name: input.name || el.getAttribute("name") || el.id || undefined,
       placeholder: input.placeholder || undefined,
       value:
         input.type === "password"
