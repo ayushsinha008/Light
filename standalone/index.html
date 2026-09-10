@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Light - Intelligent AI Assistant</title>
+  <meta name="description" content="Experience Next-Gen AI search and chat with an interactive moving mascot, fast actions, and voice control.">
+  
+  <!-- Google Fonts: Carter One for headings, Poppins for content -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Carter+One&family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <!-- Remix Icons for crisp iconography -->
+  <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
+  <!-- Stylesheet -->
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- Fullscreen Background Video -->
+  <video autoplay loop muted playsinline id="bgVideo" class="bg-video">
+    <source src="bg-video.mp4" type="video/mp4">
+  </video>
+  <div class="bg-video-overlay"></div>
+
+  <div id="app">
+    <!-- ========================================== -->
+    <!-- LEFT SIDEBAR - CHAT HISTORY                -->
+    <!-- ========================================== -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-header">
+        <button class="new-chat-btn" id="newChatBtn">
+          <i class="ri-add-line"></i>
+          <span>New Chat</span>
+        </button>
+      </div>
+
+      <div class="sidebar-search-box">
+        <div class="sidebar-search-wrapper">
+          <i class="ri-search-line"></i>
+          <input type="text" id="historySearchInput" class="sidebar-search-input" placeholder="Search history...">
+        </div>
+      </div>
+
+      <div class="history-container" id="historyListContainer">
+        <div class="history-section-title">Today</div>
+        <div id="historyTodayList">
+          <!-- Dynamically populated via JS -->
+        </div>
+
+        <div class="history-section-title">Previous Days</div>
+        <div id="historyPastList">
+          <!-- Dynamically populated via JS -->
+        </div>
+      </div>
+    </aside>
+
+    <!-- ========================================== -->
+    <!-- MAIN CANVAS CONTENT AREA                   -->
+    <!-- ========================================== -->
+    <main class="main-content">
+      <!-- Top Navigation Bar -->
+      <header class="top-navbar">
+        <div class="nav-left">
+          <button class="sidebar-toggle-pill" id="toggleSidebarBtn" title="Toggle Sidebar">
+            <i class="ri-sidebar-fold-line" id="sidebarToggleIcon"></i>
+            <span id="sidebarToggleText">Hide Sidebar</span>
+          </button>
+        </div>
+
+        <div class="nav-right">
+        </div>
+      </header>
+
+      <!-- HERO DEFAULT LANDING VIEW -->
+      <section class="hero-container" id="heroView">
+        <div class="hero-greeting">
+          <h1 class="hero-title" id="greetingTitle">
+            <span style="color: #ffffff;">What can I automate </span>
+            <span style="color: #22d3ee; text-shadow: 0 0 20px rgba(34,211,238,0.35);">for you today?</span>
+          </h1>
+          <p class="hero-subtitle">AI browser assistant with on-device privacy protection & live tab control</p>
+        </div>
+
+        <!-- ==================================================== -->
+        <!-- FEATURED MOVING CARTOON MASCOT ABOVE SEARCH BAR      -->
+        <!-- ==================================================== -->
+        <div class="mascot-wrapper" id="mascotWrapper" title="Click me for fun AI wisdom!">
+          <!-- Speech Bubble -->
+          <div class="mascot-speech-bubble" id="mascotSpeechBubble">
+            <i class="ri-chat-smile-2-fill" style="color: var(--accent-secondary);"></i>
+            <span id="mascotSpeechText">Hi, I'm Light</span>
+          </div>
+
+          <!-- Animated Mascot Frame -->
+          <div class="mascot-character" id="mascotCharacter">
+            <svg class="mascot-svg" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <linearGradient id="robotBodyGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stop-color="#6366f1"/>
+                  <stop offset="50%" stop-color="#8b5cf6"/>
+                  <stop offset="100%" stop-color="#06b6d4"/>
+                </linearGradient>
+                <linearGradient id="screenGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+                  <stop offset="0%" stop-color="#0f172a"/>
+                  <stop offset="100%" stop-color="#1e293b"/>
+                </linearGradient>
+                <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+                  <feGaussianBlur stdDeviation="6" result="blur" />
+                  <feComposite in="SourceGraphic" in2="blur" operator="over" />
+                </filter>
+              </defs>
+
+              <!-- Antenna Glow Orb -->
+              <circle cx="100" cy="22" r="10" fill="#06b6d4" filter="url(#glow)"/>
+              <line x1="100" y1="32" x2="100" y2="52" stroke="#6366f1" stroke-width="6" stroke-linecap="round"/>
+
+              <!-- Robot Ears -->
+              <rect x="38" y="78" width="12" height="24" rx="6" fill="#475569"/>
+              <rect x="150" y="78" width="12" height="24" rx="6" fill="#475569"/>
+
+              <!-- Main Robot Head Container -->
+              <rect x="46" y="50" width="108" height="88" rx="28" fill="url(#robotBodyGrad)" stroke="rgba(255,255,255,0.3)" stroke-width="2"/>
+              
+              <!-- Face Screen -->
+              <rect x="58" y="64" width="84" height="60" rx="18" fill="url(#screenGrad)" stroke="rgba(99,102,241,0.5)" stroke-width="2"/>
+
+              <!-- Left Eye (White Socket) -->
+              <circle cx="82" cy="90" r="14" fill="#ffffff"/>
+              <!-- Left Pupil (Cursor Interactive) -->
+              <circle id="leftPupil" class="eye-pupil" cx="82" cy="90" r="7" fill="#090b10"/>
+              <circle cx="80" cy="87" r="3" fill="#ffffff"/> <!-- Shine reflection -->
+
+              <!-- Right Eye (White Socket) -->
+              <circle cx="118" cy="90" r="14" fill="#ffffff"/>
+              <!-- Right Pupil (Cursor Interactive) -->
+              <circle id="rightPupil" class="eye-pupil" cx="118" cy="90" r="7" fill="#090b10"/>
+              <circle cx="116" cy="87" r="3" fill="#ffffff"/> <!-- Shine reflection -->
+
+              <!-- Cheeks -->
+              <ellipse cx="70" cy="108" rx="7" ry="4" fill="#ec4899" opacity="0.6"/>
+              <ellipse cx="130" cy="108" rx="7" ry="4" fill="#ec4899" opacity="0.6"/>
+
+              <!-- Mouth (Dynamic path) -->
+              <path id="mascotMouth" d="M 88 112 Q 100 122 112 112" stroke="#06b6d4" stroke-width="3.5" fill="none" stroke-linecap="round"/>
+
+              <!-- Little Hands holding sparkles -->
+              <g id="mascotHands">
+                <circle cx="44" cy="142" r="10" fill="url(#robotBodyGrad)"/>
+                <circle cx="156" cy="142" r="10" fill="url(#robotBodyGrad)"/>
+                <!-- Magic Sparkle -->
+                <path d="M 166 130 L 168 134 L 172 136 L 168 138 L 166 142 L 164 138 L 160 136 L 164 134 Z" fill="#f59e0b"/>
+              </g>
+            </svg>
+          </div>
+          <!-- Ground Shadow -->
+          <div class="mascot-shadow"></div>
+        </div>
+
+        <!-- SEARCH & PROMPT CAPSULE BAR CENTERPIECE -->
+        <div class="search-container">
+          <div class="search-capsule-card">
+            <input 
+              type="text"
+              id="promptInput" 
+              class="prompt-input-field" 
+              placeholder="Describe a task">
+
+            <div class="capsule-controls-right">
+              <button class="voice-btn" id="btnVoice" title="Voice Input (Click to speak)">
+                <i class="ri-mic-line"></i>
+              </button>
+              <button class="send-capsule-btn" id="sendPromptBtn" title="Send command">
+                <i class="ri-arrow-up-line"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- QUICK PROMPT STARTER CARDS -->
+        <div class="suggestion-grid">
+          <div class="suggestion-card" data-prompt="Write a Python script to scrape news headlines with BeautifulSoup">
+            <i class="ri-code-s-slash-line suggestion-icon"></i>
+            <div class="suggestion-title">Code Python Script</div>
+            <div class="suggestion-desc">Scrape headlines using BeautifulSoup</div>
+          </div>
+
+          <div class="suggestion-card" data-prompt="Brainstorm 5 innovative YouTube video ideas about artificial intelligence">
+            <i class="ri-lightbulb-line suggestion-icon"></i>
+            <div class="suggestion-title">Brainstorm Ideas</div>
+            <div class="suggestion-desc">5 viral YouTube video concepts</div>
+          </div>
+
+          <div class="suggestion-card" data-prompt="Draft a professional cold email for a modern software startup demo">
+            <i class="ri-draft-line suggestion-icon"></i>
+            <div class="suggestion-title">Draft Cold Email</div>
+            <div class="suggestion-desc">High-converting outreach template</div>
+          </div>
+
+          <div class="suggestion-card" data-prompt="Explain quantum entanglement in simple terms for a 10 year old">
+            <i class="ri-book-open-line suggestion-icon"></i>
+            <div class="suggestion-title">Explain Concept</div>
+            <div class="suggestion-desc">Quantum physics explained simply</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- STREAMING CHAT CANVAS VIEW (Active on Search/Prompt Submission) -->
+      <section class="chat-view-container" id="chatView">
+        <div class="chat-messages-log" id="chatMessagesLog">
+          <!-- Messages dynamically appended via JS -->
+        </div>
+
+        <!-- Sticky Chat Input Bar -->
+        <div class="chat-input-sticky">
+          <div class="search-bar-card">
+            <textarea 
+              id="chatFollowUpInput" 
+              class="prompt-textarea" 
+              placeholder="Send a message..." 
+              rows="1"></textarea>
+            <div class="search-controls">
+              <div class="search-controls-right">
+                <button class="voice-btn" id="chatVoiceBtn" title="Voice Input (Click to speak)">
+                  <i class="ri-mic-line"></i>
+                </button>
+                <button class="send-btn" id="chatSendFollowUpBtn"><i class="ri-arrow-up-line"></i></button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Notification Toast -->
+  <div class="toast-notification" id="toast">
+    <i class="ri-checkbox-circle-fill" style="color: var(--accent-secondary);" id="toastIcon"></i>
+    <span id="toastMessage">Success notification message</span>
+  </div>
+
+  <!-- Script File -->
+  <script src="app.js"></script>
+</body>
+</html>
