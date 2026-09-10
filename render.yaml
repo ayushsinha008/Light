@@ -6,7 +6,7 @@ services:
     region: singapore
     autoDeploy: true
     healthCheckPath: /api/health
-    buildCommand: npm ci && npm run build:packages && npm run db:generate:prod -w @privai/api && npm run build -w @privai/api
+    buildCommand: npm ci --include=dev && npm run build:packages && npm run db:generate:prod -w @privai/api && npm run build -w @privai/api
     startCommand: npm run db:push:prod -w @privai/api && npm run start -w @privai/api
     envVars:
       - key: NODE_ENV
