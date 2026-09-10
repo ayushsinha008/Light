@@ -38,7 +38,8 @@ async function main() {
         (normalized ? allowedOrigins.has(normalized) : false) ||
         /^chrome-extension:\/\//i.test(origin) ||
         /^moz-extension:\/\//i.test(origin);
-      callback(allowed ? null : new Error(`Origin not allowed: ${origin}`), allowed);
+      // Never throw here — a thrown error becomes HTTP 500 and browsers show "Failed to fetch".
+      callback(null, allowed);
     },
     credentials: true,
   });
