@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8" /><title>Infinite Scroll Fixture</title></head>
+<body>
+  <h1>Feed</h1>
+  <div id="feed"></div>
+  <script>
+    let n = 0;
+    const feed = document.getElementById('feed');
+    function add() {
+      for (let i = 0; i < 10; i++) {
+        n++;
+        const d = document.createElement('div');
+        d.textContent = 'Item ' + n;
+        d.style.padding = '24px';
+        d.style.borderBottom = '1px solid #eee';
+        feed.appendChild(d);
+      }
+    }
+    add();
+    window.addEventListener('scroll', () => {
+      if (window.innerHeight + window.scrollY >= document.body.offsetHeight - 40) add();
+    });
+  </script>
+</body>
+</html>

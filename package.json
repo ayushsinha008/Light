@@ -1,0 +1,31 @@
+{
+  "name": "light",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Private, intelligent browser automation — without sending your screen to the cloud.",
+  "workspaces": [
+    "apps/*",
+    "packages/*",
+    "tests"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspaces --if-present",
+    "dev:api": "npm run dev -w @privai/api",
+    "dev:web": "npm run dev -w @privai/web",
+    "build": "npm run build:packages && npm run build --workspaces --if-present",
+    "build:packages": "npm run build -w @privai/schemas && npm run build -w @privai/shared && npm run build -w @privai/privacy && npm run build -w @privai/vision && npm run build -w @privai/ai-provider && npm run build -w @privai/agent-core",
+    "build:extension": "npm run build:packages && npm run build -w @privai/extension",
+    "test": "npm run test --workspaces --if-present",
+    "test:e2e": "npm run test:e2e -w @privai/tests",
+    "db:generate": "npm run db:generate -w @privai/api",
+    "db:migrate": "npm run db:migrate -w @privai/api",
+    "db:push": "npm run db:push -w @privai/api",
+    "lint": "npm run lint --workspaces --if-present",
+    "docker:up": "docker compose up -d db",
+    "docker:down": "docker compose down"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "packageManager": "npm@11.6.2"
+}

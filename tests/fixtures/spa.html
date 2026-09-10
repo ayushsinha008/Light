@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>SPA Fixture</title>
+</head>
+<body>
+  <div id="root"></div>
+  <script>
+    const root = document.getElementById('root');
+    function render(view) {
+      if (view === 'home') {
+        root.innerHTML = '<h1>SPA Home</h1><button id="go">Go to Careers</button>';
+        document.getElementById('go').onclick = () => render('careers');
+      } else {
+        root.innerHTML = '<h1>Careers</h1><a id="job" href="#">Software Engineer</a>';
+        document.getElementById('job').onclick = (e) => {
+          e.preventDefault();
+          root.innerHTML = '<h1>Software Engineer Role</h1><p>Apply now</p>';
+        };
+      }
+    }
+    render('home');
+  </script>
+</body>
+</html>

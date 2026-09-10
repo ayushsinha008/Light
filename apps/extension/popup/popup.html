@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Light</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <div class="shell">
+      <header>
+        <div class="brand">
+          <span class="logo">L</span>
+          <div>
+            <h1>Light</h1>
+            <p class="tag">Privacy-first browser automation</p>
+          </div>
+        </div>
+        <div id="status-pill" class="pill disconnected">● Disconnected</div>
+      </header>
+
+      <section class="card">
+        <div class="row"><span>Current page</span><strong id="page-host">—</strong></div>
+        <div class="row"><span>Agent</span><strong id="agent-ready">Ready</strong></div>
+      </section>
+
+      <section class="card pair" id="pair-section">
+        <label for="api-url">API URL</label>
+        <input id="api-url" value="http://localhost:4000" />
+        <label for="pair-code">Pairing code</label>
+        <input id="pair-code" placeholder="ABCD2345" maxlength="12" />
+        <button id="pair-btn" class="primary">Connect to Dashboard</button>
+        <p id="pair-msg" class="hint"></p>
+      </section>
+
+      <section class="card">
+        <label for="command">What should I do?</label>
+        <textarea id="command" rows="3" placeholder="Open Amazon and search for wireless headphones."></textarea>
+        <div class="actions">
+          <button id="run-btn" class="primary">Run Agent</button>
+          <button id="pause-btn" class="ghost">Pause</button>
+          <button id="stop-btn" class="ghost">Stop</button>
+        </div>
+        <div class="actions secondary">
+          <button id="privacy-btn" class="ghost">Privacy</button>
+          <button id="settings-btn" class="ghost">Settings</button>
+        </div>
+        <p id="run-msg" class="hint"></p>
+      </section>
+    </div>
+    <script type="module" src="popup.js"></script>
+  </body>
+</html>

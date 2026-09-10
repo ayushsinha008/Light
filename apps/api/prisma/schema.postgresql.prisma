@@ -1,0 +1,144 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  name         String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  settings           Settings?
+  sessions           Session[]
+  tasks              Task[]
+  privacyEvents      PrivacyEvent[]
+  browserConnections BrowserConnection[]
+  activityEvents     ActivityEvent[]
+  pairingCodes       PairingCode[]
+}
+
+model Settings {
+  id                   String  @id @default(cuid())
+  userId               String  @unique
+  confidenceThreshold  Float   @default(0.75)
+  autoApproveLowRisk   Boolean @default(false)
+  redactEmails         Boolean @default(true)
+  redactPhones         Boolean @default(true)
+  demoMode             Boolean @default(true)
+  theme                String  @default("dark")
+  user                 User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  label     String?
+  status    String   @default("active")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tasks     Task[]
+}
+
+model Task {
+  id          String     @id @default(cuid())
+  userId      String
+  sessionId   String?
+  goal        String
+  status      String     @default("IDLE")
+  demoMode    Boolean    @default(true)
+  message     String?
+  stepCount   Int        @default(0)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  completedAt DateTime?
+  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  session     Session?   @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  steps       TaskStep[]
+  agentRuns   AgentRun[]
+}
+
+model TaskStep {
+  id        String   @id @default(cuid())
+  taskId    String
+  index     Int
+  type      String
+  message   String
+  meta      Json?
+  status    String   @default("ok")
+  createdAt DateTime @default(now())
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([taskId])
+}
+
+model AgentRun {
+  id         String   @id @default(cuid())
+  taskId     String
+  status     String
+  planJson   Json?
+  resultJson Json?
+  error      String?
+  createdAt  DateTime @default(now())
+  task       Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([taskId])
+}
+
+model PrivacyEvent {
+  id            String   @id @default(cuid())
+  userId        String
+  type          String
+  description   String
+  redactedCount Int      @default(0)
+  payloadKind   String   @default("structured_metadata")
+  createdAt     DateTime @default(now())
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model BrowserConnection {
+  id          String   @id @default(cuid())
+  userId      String
+  extensionId String?
+  token       String   @unique
+  status      String   @default("connected")
+  userAgent   String?
+  lastSeenAt  DateTime @default(now())
+  createdAt   DateTime @default(now())
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model ActivityEvent {
+  id        String   @id @default(cuid())
+  userId    String
+  taskId    String?
+  sessionId String?
+  type      String
+  message   String
+  meta      Json?
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+}
+
+model PairingCode {
+  id        String   @id @default(cuid())
+  userId    String
+  code      String   @unique
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}

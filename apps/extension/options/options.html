@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Light Settings</title>
+    <style>
+      :root { color-scheme: dark; font-family: Inter, Segoe UI, system-ui, sans-serif; }
+      body { margin: 0; background: #070b14; color: #e8eefc; }
+      main { max-width: 720px; margin: 40px auto; padding: 24px; }
+      .card { background: rgba(18,24,38,.9); border: 1px solid rgba(120,150,255,.2); border-radius: 16px; padding: 20px; }
+      h1 { margin-top: 0; }
+      label { display: flex; gap: 10px; align-items: center; margin: 10px 0; color: #b6c3dd; }
+      button { margin-top: 16px; background: linear-gradient(135deg,#6ea8ff,#8b5cf6); border:0; color:white; padding:10px 16px; border-radius:10px; font-weight:600; cursor:pointer; }
+      p { color: #8b9bb8; line-height: 1.5; }
+      code { color: #9ec1ff; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <div class="card">
+        <h1>Light Privacy & Settings</h1>
+        <p>
+          Sensitive visual processing happens locally whenever supported.
+          Only minimized structured context is sent to the cloud planner.
+          Raw screenshots are <strong>not</strong> uploaded by default.
+        </p>
+        <label><input type="checkbox" id="redactEmails" checked /> Redact emails</label>
+        <label><input type="checkbox" id="redactPhones" checked /> Redact phone numbers</label>
+        <label><input type="checkbox" id="redactCards" checked /> Redact payment card numbers</label>
+        <label><input type="checkbox" id="redactSecrets" checked /> Redact secrets / tokens / passwords</label>
+        <label>API URL <input id="apiUrl" style="margin-left:8px;flex:1;background:#0b1220;border:1px solid #334;color:#fff;padding:6px 8px;border-radius:8px;" /></label>
+        <button id="save">Save</button>
+        <p id="msg"></p>
+      </div>
+    </main>
+    <script type="module" src="options.js"></script>
+  </body>
+</html>

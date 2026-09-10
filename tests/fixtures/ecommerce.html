@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Demo Store</title>
+  <style>
+    body { font-family: sans-serif; margin: 24px; }
+    .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+    .card { border: 1px solid #ddd; padding: 12px; border-radius: 8px; }
+    #banner { display:none; position:fixed; inset:auto 16px 16px 16px; background:#111; color:#fff; padding:16px; border-radius:12px; }
+    #banner.show { display:block; }
+  </style>
+</head>
+<body>
+  <input id="search" role="searchbox" placeholder="Search products" />
+  <button id="search-btn">Search</button>
+  <div class="grid" id="products">
+    <div class="card"><h3>Wireless Headphones</h3><p>₹2,999</p><button>Add to cart</button></div>
+    <div class="card"><h3>Laptop 16GB</h3><p>₹54,999</p><button>Buy now</button></div>
+    <div class="card"><h3>Budget Mouse</h3><p>₹499</p><button>Add to cart</button></div>
+  </div>
+  <div id="banner">
+    <p>We use cookies</p>
+    <button id="accept">Accept</button>
+  </div>
+  <dialog id="modal">
+    <p>Promo dialog</p>
+    <button id="close-modal">Close</button>
+  </dialog>
+  <script>
+    document.getElementById('banner').classList.add('show');
+    document.getElementById('accept').onclick = () => document.getElementById('banner').classList.remove('show');
+    document.getElementById('search-btn').onclick = () => {
+      const q = document.getElementById('search').value.toLowerCase();
+      [...document.querySelectorAll('.card')].forEach(c => {
+        c.style.display = c.innerText.toLowerCase().includes(q) || !q ? '' : 'none';
+      });
+    };
+    setTimeout(() => document.getElementById('modal').showModal(), 300);
+    document.getElementById('close-modal').onclick = () => document.getElementById('modal').close();
+  </script>
+</body>
+</html>

@@ -1,0 +1,41 @@
+services:
+  - type: web
+    name: light-api
+    runtime: node
+    plan: free
+    region: singapore
+    autoDeploy: true
+    healthCheckPath: /api/health
+    buildCommand: npm ci && npm run build:packages && npm run db:generate:prod -w @privai/api && npm run build -w @privai/api
+    startCommand: npm run db:push:prod -w @privai/api && npm run start -w @privai/api
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NODE_VERSION
+        value: 22.14.0
+      - key: PRIVAI_MODE
+        value: live
+      - key: API_HOST
+        value: 0.0.0.0
+      - key: API_URL
+        sync: false
+      - key: WEB_URL
+        sync: false
+      - key: CORS_ORIGINS
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: COOKIE_SECRET
+        generateValue: true
+      - key: EXTENSION_TOKEN_SECRET
+        generateValue: true
+      - key: AI_PROVIDER
+        value: gemini
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GEMINI_MODEL
+        value: gemini-2.0-flash
+      - key: STORE_SCREENSHOTS
+        value: "false"
