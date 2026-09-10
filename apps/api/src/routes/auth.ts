@@ -80,6 +80,36 @@ export async function registerAuthRoutes(app: FastifyInstance, env: Env) {
     };
   });
 
+  app.post("/api/auth/guest", async (request, reply) => {
+    const body = (request.body as { name?: string }) || {};
+    const guestName = (body.name || "Explorer").trim().slice(0, 50);
+    const guestEmail = `guest_${Date.now()}_${Math.random().toString(36).slice(2, 7)}@light.local`;
+    const passwordHash = await bcrypt.hash(Math.random().toString(36), 8);
+
+    const user = await prisma.user.create({
+      data: {
+        email: guestEmail,
+        passwordHash,
+        name: guestName,
+        settings: { create: {} },
+      },
+    });
+
+    const token = await reply.jwtSign({ sub: user.id, email: user.email });
+    reply.setCookie("privai_token", token, {
+      path: "/",
+      httpOnly: true,
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+      maxAge: 60 * 60 * 24 * 30,
+    });
+
+    return {
+      user: { id: user.id, email: user.email, name: user.name },
+      token,
+    };
+  });
+
   app.post("/api/auth/logout", async (_request, reply) => {
     reply.clearCookie("privai_token", { path: "/" });
     return { ok: true };
