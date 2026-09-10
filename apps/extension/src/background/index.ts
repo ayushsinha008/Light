@@ -11,6 +11,9 @@ interface ConnectionState {
 
 let ws: WebSocket | null = null;
 let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+let reconnectAttempt = 0;
+const KEEP_ALIVE_ALARM = "light-keep-alive";
+const MAX_RECONNECT_MS = 30000;
 
 /** taskId → Chrome tab id controlled by the agent */
 const agentTabs = new Map<string, number>();
@@ -95,14 +98,18 @@ function isProtectedDashboardUrl(url?: string): boolean {
   if (!url) return false;
   try {
     const u = new URL(url);
+    const host = u.hostname.toLowerCase();
     const local =
-      u.hostname === "localhost" ||
-      u.hostname === "127.0.0.1" ||
-      u.hostname === "[::1]";
-    // Never navigate/reuse the Light web dashboard tab
-    return local && (u.port === "3000" || u.port === "");
+      host === "localhost" ||
+      host === "127.0.0.1" ||
+      host === "[::1]";
+    // Never navigate/reuse the Light web dashboard tab (local or deployed).
+    if (local && (u.port === "3000" || u.port === "")) return true;
+    if (host.endsWith(".vercel.app") && !host.includes("api")) return true;
+    if (host === "light-api-three.vercel.app") return true;
+    return false;
   } catch {
-    return /localhost:3000|127\.0\.0\.1:3000/i.test(url);
+    return /localhost:3000|127\.0\.0\.1:3000|\.vercel\.app/i.test(url);
   }
 }
 
@@ -281,26 +288,62 @@ async function executeOnTab(taskId: string, plan: unknown, preferredTabId?: numb
   return response.results;
 }
 
+function scheduleReconnect() {
+  if (reconnectTimer) clearTimeout(reconnectTimer);
+  const delay = Math.min(1000 * 2 ** reconnectAttempt, MAX_RECONNECT_MS);
+  reconnectAttempt += 1;
+  reconnectTimer = setTimeout(() => {
+    void ensureConnected();
+  }, delay);
+}
+
+async function ensureConnected() {
+  const state = await getState();
+  if (!state.token || !state.connectionId) return;
+  if (ws && ws.readyState === WebSocket.CONNECTING) return;
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    try {
+      ws.send(JSON.stringify({ event: "browser:ping", payload: { ts: Date.now() } }));
+      return;
+    } catch {
+      try {
+        ws.close();
+      } catch {
+        // ignore
+      }
+      ws = null;
+    }
+  }
+  connectWs(state);
+}
+
 function connectWs(state: ConnectionState) {
   if (!state.token || !state.connectionId) return;
   if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return;
+  // Drop stale closed sockets so reconnect always creates a fresh transport.
+  ws = null;
 
   const wsUrl =
     state.apiUrl.replace(/^http/, "ws") +
     `/ws?kind=extension&token=${encodeURIComponent(state.token)}&connectionId=${encodeURIComponent(state.connectionId)}`;
-  void setState({ status: "connecting" });
+  void setState({ status: "connecting", lastError: undefined });
   ws = new WebSocket(wsUrl);
 
   ws.onopen = () => {
+    reconnectAttempt = 0;
     void setState({ status: "connected", lastError: undefined });
   };
 
   ws.onclose = () => {
-    void setState({ status: "disconnected" });
-    if (reconnectTimer) clearTimeout(reconnectTimer);
-    reconnectTimer = setTimeout(() => {
-      void getState().then(connectWs);
-    }, 3000);
+    // Keep pairing credentials. Only show reconnecting so users do not re-pair every time.
+    void getState().then((current) => {
+      if (current.token && current.connectionId) {
+        void setState({ status: "connecting", lastError: "Reconnecting to Light…" });
+        scheduleReconnect();
+      } else {
+        void setState({ status: "disconnected" });
+      }
+    });
   };
 
   ws.onerror = () => {
@@ -450,6 +493,16 @@ function connectWs(state: ConnectionState) {
   };
 }
 
+function startKeepAlive() {
+  void chrome.alarms.clear(KEEP_ALIVE_ALARM);
+  void chrome.alarms.create(KEEP_ALIVE_ALARM, { periodInMinutes: 0.4 });
+}
+
+chrome.alarms.onAlarm.addListener((alarm) => {
+  if (alarm.name !== KEEP_ALIVE_ALARM) return;
+  void ensureConnected();
+});
+
 chrome.tabs.onRemoved.addListener((tabId) => {
   const taskId = tabTasks.get(tabId);
   if (!taskId) return;
@@ -465,17 +518,26 @@ chrome.tabs.onRemoved.addListener((tabId) => {
 });
 
 chrome.runtime.onInstalled.addListener((details) => {
-  if (details.reason !== "install") return;
-  void setState({ apiUrl: DEFAULT_API_URL, status: "disconnected" });
+  startKeepAlive();
+  if (details.reason === "install") {
+    void setState({ apiUrl: DEFAULT_API_URL, status: "disconnected" });
+    return;
+  }
+  // Updates / reloads should reconnect with saved pairing token.
+  void ensureConnected();
 });
 
 chrome.runtime.onStartup.addListener(() => {
-  void getState().then(connectWs);
+  startKeepAlive();
+  void ensureConnected();
 });
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   void (async () => {
     try {
+      // Any popup/UI message should wake the worker and refresh the socket.
+      void ensureConnected();
+
       if (message?.type === "PRIVAI_PAIR") {
         const apiUrl = message.apiUrl || DEFAULT_API_URL;
         const pairingCode = String(message.pairingCode || "").toUpperCase();
@@ -490,6 +552,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || "Pairing failed");
+        reconnectAttempt = 0;
         await setState({
           apiUrl,
           connectionId: data.connectionId,
@@ -507,7 +570,10 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       }
 
       if (message?.type === "PRIVAI_DISCONNECT") {
+        if (reconnectTimer) clearTimeout(reconnectTimer);
+        reconnectAttempt = 0;
         ws?.close();
+        ws = null;
         await chrome.storage.local.remove(["connectionId", "token"]);
         await setState({ status: "disconnected", connectionId: undefined, token: undefined });
         sendResponse({ ok: true });
@@ -544,4 +610,5 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   return true;
 });
 
-void getState().then(connectWs);
+startKeepAlive();
+void ensureConnected();

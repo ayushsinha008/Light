@@ -42,6 +42,13 @@ export async function registerWebsocket(app: FastifyInstance) {
               event?: string;
               payload?: Record<string, unknown>;
             };
+            if (msg.event === "browser:ping") {
+              try {
+                socket.send(JSON.stringify({ event: "browser:pong", payload: { ts: Date.now() }, ts: Date.now() }));
+              } catch {
+                // ignore send failures on closing sockets
+              }
+            }
             if (msg.event === "browser:observation" && msg.payload?.taskId) {
               connectionHub.resolveObservation(
                 String(msg.payload.taskId),

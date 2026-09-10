@@ -30,8 +30,20 @@ export class ConnectionHub {
   private approvals = new Map<string, Pending<boolean>>();
   private openTabs = new Map<string, Pending<{ tabId: number; url: string }>>();
   private controls = new Map<string, TaskControlState>();
+  private offlineTimers = new Map<string, NodeJS.Timeout>();
+
+  private presenceKey(client: Client) {
+    return `${client.kind}:${client.userId}:${client.connectionId || ""}`;
+  }
 
   add(client: Client) {
+    const key = this.presenceKey(client);
+    const pendingOffline = this.offlineTimers.get(key);
+    if (pendingOffline) {
+      clearTimeout(pendingOffline);
+      this.offlineTimers.delete(key);
+    }
+
     // A reloaded MV3 service worker can reconnect before the old socket's close
     // event is observed. Keep exactly one extension transport per connection.
     if (client.kind === "extension") {
@@ -63,11 +75,37 @@ export class ConnectionHub {
     for (const c of this.clients) {
       if (c.socket === socket) {
         this.clients.delete(c);
-        this.broadcastToUser(c.userId, WS_EVENTS.CONNECTION, {
-          status: "offline",
-          kind: c.kind,
-          connectionId: c.connectionId,
-        });
+        const stillOnline = [...this.clients].some(
+          (other) =>
+            other.userId === c.userId &&
+            other.kind === c.kind &&
+            (c.kind !== "extension" || other.connectionId === c.connectionId) &&
+            other.socket.readyState === 1,
+        );
+        // Reloaded service workers replace sockets quickly; delay offline so reconnects don't flicker.
+        if (!stillOnline) {
+          const key = this.presenceKey(c);
+          const existing = this.offlineTimers.get(key);
+          if (existing) clearTimeout(existing);
+          const delayMs = c.kind === "extension" ? 2500 : 0;
+          const timer = setTimeout(() => {
+            this.offlineTimers.delete(key);
+            const backOnline = [...this.clients].some(
+              (other) =>
+                other.userId === c.userId &&
+                other.kind === c.kind &&
+                (c.kind !== "extension" || other.connectionId === c.connectionId) &&
+                other.socket.readyState === 1,
+            );
+            if (backOnline) return;
+            this.broadcastToUser(c.userId, WS_EVENTS.CONNECTION, {
+              status: "offline",
+              kind: c.kind,
+              connectionId: c.connectionId,
+            });
+          }, delayMs);
+          this.offlineTimers.set(key, timer);
+        }
       }
     }
   }

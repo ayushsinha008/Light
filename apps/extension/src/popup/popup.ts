@@ -2,9 +2,16 @@ async function refresh() {
   const state = await chrome.runtime.sendMessage({ type: "PRIVAI_GET_STATE" });
   const page = await chrome.runtime.sendMessage({ type: "PRIVAI_PAGE_INFO" });
   const pill = document.getElementById("status-pill")!;
-  const connected = state?.status === "connected";
-  pill.textContent = connected ? "● Connected" : "● Disconnected";
-  pill.className = `pill ${connected ? "connected" : "disconnected"}`;
+  const status = String(state?.status || "disconnected");
+  const connected = status === "connected";
+  const pairing = Boolean(state?.token && state?.connectionId);
+  const connecting = status === "connecting" || (pairing && !connected);
+  pill.textContent = connected
+    ? "● Connected"
+    : connecting
+      ? "● Reconnecting…"
+      : "● Disconnected";
+  pill.className = `pill ${connected ? "connected" : connecting ? "connecting" : "disconnected"}`;
 
   const host = document.getElementById("page-host")!;
   try {
@@ -18,12 +25,15 @@ async function refresh() {
     ? "Blocked on this page"
     : connected
       ? "Ready"
-      : "Pair with dashboard";
+      : connecting
+        ? "Reconnecting…"
+        : "Pair with dashboard";
 
   const apiUrl = document.getElementById("api-url") as HTMLInputElement;
   if (state?.apiUrl) apiUrl.value = state.apiUrl;
 
-  document.getElementById("pair-section")!.style.display = connected ? "none" : "grid";
+  // Keep pair form hidden once credentials exist — auto-reconnect handles drops.
+  document.getElementById("pair-section")!.style.display = pairing ? "none" : "grid";
 }
 
 document.getElementById("pair-btn")!.addEventListener("click", async () => {

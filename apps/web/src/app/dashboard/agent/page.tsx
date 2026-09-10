@@ -141,12 +141,16 @@ export default function AgentPage() {
         .catch(() => undefined);
     });
 
-    void api<{ connected: boolean }>("/api/browser/status")
-      .then((d) => {
-        setExtensionOnline(Boolean(d.connected));
-        setConnectionChecked(true);
-      })
-      .catch(() => setConnectionChecked(true));
+    const refreshBrowserStatus = () => {
+      void api<{ connected: boolean }>("/api/browser/status")
+        .then((d) => {
+          setExtensionOnline(Boolean(d.connected));
+          setConnectionChecked(true);
+        })
+        .catch(() => setConnectionChecked(true));
+    };
+    refreshBrowserStatus();
+    const statusPoll = window.setInterval(refreshBrowserStatus, 5000);
 
     // Load recent tasks for history
     void api<{ tasks?: Array<{ id: string; goal: string; createdAt: string }> }>("/api/agent/tasks")
@@ -162,71 +166,95 @@ export default function AgentPage() {
         }
       })
       .catch(() => undefined);
+
+    return () => window.clearInterval(statusPoll);
   }, []);
 
   // WebSocket Connection
   useEffect(() => {
     const token = getToken();
     if (!token) return;
-    const ws = new WebSocket(`${WS_URL}/ws?kind=dashboard&token=${encodeURIComponent(token)}`);
-    wsRef.current = ws;
-    ws.onmessage = (ev) => {
-      try {
-        const msg = JSON.parse(String(ev.data)) as { event: string; payload: Record<string, unknown> };
-        if (msg.event === "agent:status") {
-          const next = String(msg.payload.status || "IDLE");
-          setStatus(next);
-          if (msg.payload.message) setStatusMessage(String(msg.payload.message));
-          if (["COMPLETED", "ERROR", "BLOCKED", "PAUSED"].includes(next)) setRunning(false);
-          if (ACTIVE_STATUSES.has(next)) setRunning(true);
-        }
-        if (msg.event === "agent:activity") {
-          const item = msg.payload as Activity;
-          setActivity((a) => [item, ...a].slice(0, 100));
-        }
-        if (msg.event === "agent:plan") {
-          const plan = msg.payload.plan as { actions?: Array<{ type: string }> };
-          const action = plan?.actions?.[0]?.type;
-          setCurrentAction(action ? humanAction(action) : "—");
-        }
-        if (msg.event === "agent:approval") {
-          setApproval({
-            taskId: String(msg.payload.taskId),
-            reasons: (msg.payload.reasons as string[]) || ["Approval required"],
-          });
-          setStatus("AWAITING_APPROVAL");
-        }
-        if (msg.event === "agent:privacy") {
-          setElements(Number(msg.payload.redactedFields || 0));
-        }
-        if (msg.event === "agent:browser_state") {
-          if (msg.payload.url) setPageUrl(String(msg.payload.url));
-          if (msg.payload.tabId) setTabId(Number(msg.payload.tabId));
-          if (msg.payload.elementCount != null) setElements(Number(msg.payload.elementCount));
-        }
-        if (msg.event === "agent:result") {
-          setResults({
-            summary: String(msg.payload.summary || ""),
-            items: (msg.payload.items as ResultItem[]) || [],
-          });
-          setRunning(false);
-        }
-        if (msg.event === "browser:tab_closed") {
-          setStatus("BLOCKED");
-          setStatusMessage("Agent browser tab was closed.");
-          setRunning(false);
-        }
-        if (msg.event === "browser:connection") {
-          if (msg.payload.kind === "extension") {
-            setExtensionOnline(msg.payload.status === "online");
-            setConnectionChecked(true);
+    let closed = false;
+    let retryTimer: number | undefined;
+    let attempt = 0;
+
+    const connectDashboardWs = () => {
+      if (closed) return;
+      const ws = new WebSocket(`${WS_URL}/ws?kind=dashboard&token=${encodeURIComponent(token)}`);
+      wsRef.current = ws;
+      ws.onopen = () => {
+        attempt = 0;
+      };
+      ws.onclose = () => {
+        if (closed) return;
+        const delay = Math.min(1000 * 2 ** attempt, 15000);
+        attempt += 1;
+        retryTimer = window.setTimeout(connectDashboardWs, delay);
+      };
+      ws.onmessage = (ev) => {
+        try {
+          const msg = JSON.parse(String(ev.data)) as { event: string; payload: Record<string, unknown> };
+          if (msg.event === "agent:status") {
+            const next = String(msg.payload.status || "IDLE");
+            setStatus(next);
+            if (msg.payload.message) setStatusMessage(String(msg.payload.message));
+            if (["COMPLETED", "ERROR", "BLOCKED", "PAUSED"].includes(next)) setRunning(false);
+            if (ACTIVE_STATUSES.has(next)) setRunning(true);
           }
+          if (msg.event === "agent:activity") {
+            const item = msg.payload as Activity;
+            setActivity((a) => [item, ...a].slice(0, 100));
+          }
+          if (msg.event === "agent:plan") {
+            const plan = msg.payload.plan as { actions?: Array<{ type: string }> };
+            const action = plan?.actions?.[0]?.type;
+            setCurrentAction(action ? humanAction(action) : "—");
+          }
+          if (msg.event === "agent:approval") {
+            setApproval({
+              taskId: String(msg.payload.taskId),
+              reasons: (msg.payload.reasons as string[]) || ["Approval required"],
+            });
+            setStatus("AWAITING_APPROVAL");
+          }
+          if (msg.event === "agent:privacy") {
+            setElements(Number(msg.payload.redactedFields || 0));
+          }
+          if (msg.event === "agent:browser_state") {
+            if (msg.payload.url) setPageUrl(String(msg.payload.url));
+            if (msg.payload.tabId) setTabId(Number(msg.payload.tabId));
+            if (msg.payload.elementCount != null) setElements(Number(msg.payload.elementCount));
+          }
+          if (msg.event === "agent:result") {
+            setResults({
+              summary: String(msg.payload.summary || ""),
+              items: (msg.payload.items as ResultItem[]) || [],
+            });
+            setRunning(false);
+          }
+          if (msg.event === "browser:tab_closed") {
+            setStatus("BLOCKED");
+            setStatusMessage("Agent browser tab was closed.");
+            setRunning(false);
+          }
+          if (msg.event === "browser:connection") {
+            if (msg.payload.kind === "extension") {
+              setExtensionOnline(msg.payload.status === "online");
+              setConnectionChecked(true);
+            }
+          }
+        } catch {
+          // ignore
         }
-      } catch {
-        // ignore
-      }
+      };
     };
-    return () => ws.close();
+
+    connectDashboardWs();
+    return () => {
+      closed = true;
+      if (retryTimer) window.clearTimeout(retryTimer);
+      wsRef.current?.close();
+    };
   }, []);
 
   // Run Task
